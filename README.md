@@ -9,7 +9,7 @@ F(u, v, p) = 1/c² · exp(−2 · ((u² + v²) / c²)^(p/2))      # p = 2 → Ga
 ```
 
 ## Features
-- Upload, drag-and-drop or paste any image (or use the built-in samples: shapes & text, night lights, points of light).
+- Upload, drag-and-drop or paste any image (the default is an embedded profile photo; other built-in samples: shapes & text, night lights, points of light).
 - Sliders for **kernel size** (3–31), shape **p** (1 → ∞, with Gaussian / Disk presets and "random like training", p ~ 2^U(1,5)), and blur radius **c**.
 - Step-by-step animation: a window slides over the image and shows *neighbours × kernel shares = contributions → add up → new pixel*, while the blurred output fills in pixel by pixel, in 8×8 patches, or row by row. Click any pixel to inspect it.
 - Kernel heatmap plus a profile plot comparing your p with the Gaussian and the disk (like Fig. A7 in the paper).
