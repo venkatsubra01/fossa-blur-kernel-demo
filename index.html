@@ -488,7 +488,7 @@ function stepPixels(i) { // returns list of [x,y] for step i and the "focus" pix
 }
 function resetAnim() {
   S.shown = new Uint8ClampedArray(S.animW * S.animH * 4);
-  S.steps = stepCount(); S.done = 0; S.cur = [0, 0]; S.tile = null;
+  S.steps = stepCount(); S.done = 0; S.cur = [0, 0]; S.tile = null; S.inspect = false;
   setPlaying(false); renderAnim();
 }
 function advance(n) {
@@ -519,7 +519,7 @@ function drawPixels(cv, data, w, h) {
 function renderAnim() {
   if (!S.animIn) return;
   const { animW: w, animH: h } = S, s = animScale, m = (S.k - 1) >> 1, [cx, cy] = S.cur;
-  const active = S.done > 0;
+  const active = S.done > 0 || S.inspect;
   const gi = drawPixels($('inCv'), S.animIn, w, h);
   if (active) {
     // circle of radius c inside the window shows where weight lives
@@ -854,7 +854,7 @@ $('inCv').onclick = e => {
   const r = e.target.getBoundingClientRect();
   const x = Math.floor((e.clientX - r.left) / r.width * S.animW), y = Math.floor((e.clientY - r.top) / r.height * S.animH);
   setPlaying(false); S.cur = [Math.max(0, Math.min(S.animW - 1, x)), Math.max(0, Math.min(S.animH - 1, y))]; S.tile = null;
-  if (!S.done) S.done = 0.0001; renderAnim();
+  S.inspect = true; renderAnim();
 };
 document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
