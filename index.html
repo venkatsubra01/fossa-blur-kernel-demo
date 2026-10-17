@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Blur Kernel Playground: Gaussian vs Disk (FOSSA)</title>
+<style>
+  :root{--bg:#f6f7fb;--card:#fff;--ink:#1d2433;--muted:#5d6678;--line:#e3e6ee;--accent:#2f6fed;--gauss:#2f6fed;--disk:#e8590c;--mine:#111;--ok:#16a34a}
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  header{padding:18px 24px 6px}
+  header h1{margin:0;font-size:24px}
+  header p{margin:4px 0 0;color:var(--muted)}
+  a{color:var(--accent)}
+  .wrap{display:grid;grid-template-columns:300px 1fr;gap:16px;padding:12px 24px 32px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .card h2{font-size:16px;margin:0 0 10px}
+  .card h3{font-size:14px;margin:12px 0 6px}
+  .side{display:flex;flex-direction:column;gap:12px;position:sticky;top:12px;align-self:start;max-height:calc(100vh - 24px);overflow:auto}
+  .main{display:flex;flex-direction:column;gap:16px;min-width:0}
+  label.ctl{display:block;margin:10px 0 2px;font-weight:600;font-size:13px}
+  .val{float:right;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
+  .hint{font-size:12px;color:var(--muted);margin:2px 0 0}
+  input[type=range]{width:100%}
+  button{font:inherit;font-size:13px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 10px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button.on{outline:2px solid var(--accent)}
+  .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .drop{border:2px dashed #b9c2d6;border-radius:10px;padding:10px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer}
+  .drop.over{border-color:var(--accent);background:#eef3ff}
+  .samples{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px}
+  .samples button{padding:4px;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:3px}
+  .samples canvas{width:100%;border-radius:4px}
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .step{background:#f3f6fd;border-radius:10px;padding:10px 12px;font-size:13.5px}
+  .step b{display:block;font-size:14px;margin-bottom:2px}
+  .step .n{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;margin-right:6px}
+  .stage{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:start}
+  .imgbox{text-align:center}
+  .imgbox .cap{font-weight:600;font-size:13px;margin-bottom:4px}
+  .pix{width:100%;image-rendering:pixelated;border-radius:6px;border:1px solid var(--line);background:repeating-conic-gradient(#eceff5 0 25%,#fff 0 50%) 0 0/16px 16px;cursor:crosshair}
+  .detail{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:250px}
+  .eq{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center}
+  .eq .g{text-align:center;font-size:12px;color:var(--muted)}
+  .eq canvas{width:150px;height:150px;image-rendering:pixelated;border:1px solid var(--line);border-radius:4px;display:block}
+  .op{font-size:22px;font-weight:700;color:var(--muted)}
+  .swatch{width:64px;height:64px;border-radius:8px;border:1px solid var(--line)}
+  .narr{background:#fffbea;border:1px solid #f4e3a1;border-radius:10px;padding:10px 12px;font-size:14px;margin-top:10px;min-height:48px}
+  .progress{height:6px;background:#e8ebf2;border-radius:3px;overflow:hidden;margin-top:8px}
+  .progress div{height:100%;background:var(--accent);width:0}
+  .kgrid{display:grid;grid-template-columns:240px 1fr;gap:16px;align-items:start}
+  .kgrid canvas.heat{width:240px;height:240px;image-rendering:pixelated;border-radius:6px;border:1px solid var(--line)}
+  .prof{width:100%;height:240px}
+  .legend{display:flex;gap:14px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+  .legend i{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:4px}
+  .shape{font-size:14.5px;margin-top:8px;padding:8px 10px;border-left:4px solid var(--accent);background:#f3f6fd;border-radius:4px}
+  .compare{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .compare figure{margin:0;position:relative}
+  .compare canvas{width:100%;border-radius:6px;border:1px solid var(--line);display:block}
+  .compare figcaption{font-size:13px;font-weight:600;text-align:center;margin-top:4px}
+  .busy{position:absolute;inset:0;display:none;place-items:center;background:rgba(255,255,255,.6);font-size:13px;border-radius:6px}
+  .busy.show{display:grid}
+  .paper{font-size:13.5px}
+  .formula{font-family:Cambria,Georgia,serif;font-size:17px;background:#f7f8fb;border-radius:8px;padding:8px 10px;margin:6px 0;text-align:center}
+  kbd{background:#eef0f5;border:1px solid #d6d9e2;border-bottom-width:2px;border-radius:4px;padding:0 4px;font-size:12px}
+  @media (max-width:1100px){.wrap{grid-template-columns:1fr}.side{position:static;max-height:none}.steps,.compare{grid-template-columns:1fr 1fr}.stage{grid-template-columns:1fr}.kgrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Blur Kernel Playground: Gaussian blur vs. Disk blur</h1>
+  <p>An interactive explainer of the <b>generalized point spread function</b> (blur kernel) from
+    <a href="https://arxiv.org/abs/2603.26658" target="_blank" rel="noopener">Zero-Shot Depth from Defocus</a> (ZEDD benchmark / FOSSA model, ECCV 2026).</p>
+</header>
+
+<div class="wrap">
+  <aside class="side">
+    <div class="card">
+      <h2>1. Pick an image</h2>
+      <div class="drop" id="drop">Click to choose a photo, or drop one here<input type="file" id="file" accept="image/*" hidden></div>
+      <div class="samples" id="samples"></div>
+    </div>
+
+    <div class="card">
+      <h2>2. Shape the blur kernel</h2>
+      <label class="ctl">Kernel size (how far we look) <span class="val" id="kVal"></span></label>
+      <input type="range" id="k" min="3" max="31" step="2" value="15">
+      <p class="hint">The kernel is a k×k window of neighbours. FOSSA uses 15×15.</p>
+
+      <label class="ctl">Shape p <span class="val" id="pVal"></span></label>
+      <input type="range" id="p" min="0" max="121" step="1" value="20">
+      <div class="row" style="margin-top:6px">
+        <button data-p="20">Gaussian (p=2)</button>
+        <button data-p="121">Disk (p=∞)</button>
+        <button id="pRand" title="Sample p ~ 2^U(1,5), exactly how FOSSA randomizes p during training">Random like training</button>
+      </div>
+      <p class="hint">p=2 is a Gaussian; as p grows the kernel becomes a flat disk. FOSSA trains on p between 2 and 32.</p>
+
+      <label class="ctl">Blur radius c <span class="val" id="cVal"></span></label>
+      <input type="range" id="c" min="0.5" max="24" step="0.25" value="7">
+      <label class="hint"><input type="checkbox" id="cLink" checked> Tie c to kernel size (c = (k−1)/2)</label>
+      <p class="hint">c is the circle-of-confusion radius from the paper. A Gaussian with c has σ = c/2.</p>
+    </div>
+
+    <div class="card">
+      <h2>3. Play the animation</h2>
+      <div class="row">
+        <button class="primary" id="play">▶ Play</button>
+        <button id="stepBtn">Step ▸</button>
+        <button id="reset">↺ Reset</button>
+        <button id="finish">Finish »</button>
+      </div>
+      <label class="ctl">Speed <span class="val" id="spVal"></span></label>
+      <input type="range" id="speed" min="0" max="8" step="1" value="2">
+      <label class="ctl">Fill the output…</label>
+      <div class="row" id="gran">
+        <button data-g="pixel" class="on">pixel by pixel</button>
+        <button data-g="tile">8×8 patches</button>
+        <button data-g="row">row by row</button>
+      </div>
+      <label class="ctl">Animation resolution <span class="val" id="arVal"></span></label>
+      <input type="range" id="ares" min="32" max="160" step="8" value="72">
+      <p class="hint">The animation works on a shrunken copy so each pixel is visible. Click any pixel on the left image to inspect it. Keys: <kbd>Space</kbd> play/pause, <kbd>→</kbd> step, <kbd>R</kbd> reset.</p>
+    </div>
+  </aside>
+
+  <main class="main">
+    <section class="card">
+      <h2>Blurring in four ideas</h2>
+      <div class="steps">
+        <div class="step"><b><span class="n">1</span>Pictures are grids</b>A digital photo is a grid of tiny coloured squares called <i>pixels</i>, each with a red, green and blue amount.</div>
+        <div class="step"><b><span class="n">2</span>Blur = averaging neighbours</b>To blur, we rebuild the picture one pixel at a time: each new pixel is a mix of the old pixels around it.</div>
+        <div class="step"><b><span class="n">3</span>The kernel is the recipe</b>The <i>kernel</i> says how much each neighbour counts (its share of the vote). Shares always add up to 100%.</div>
+        <div class="step"><b><span class="n">4</span>p sets the recipe's shape</b><span style="color:var(--gauss)">Gaussian</span>: close neighbours count more, a soft hill. <span style="color:var(--disk)">Disk</span>: everyone inside a circle counts equally, like an out-of-focus lens.</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Watch the blurred image get built</h2>
+      <div class="stage">
+        <div class="imgbox"><div class="cap">Original (input)</div><canvas id="inCv" class="pix"></canvas></div>
+        <div class="detail">
+          <div class="cap" style="font-weight:600;font-size:13px">What happens at the highlighted pixel</div>
+          <div class="eq">
+            <div class="g"><canvas id="dPatch"></canvas>neighbours</div>
+            <div class="op">×</div>
+            <div class="g"><canvas id="dKer"></canvas>kernel shares</div>
+          </div>
+          <div class="eq">
+            <div class="op">=</div>
+            <div class="g"><canvas id="dProd"></canvas>each neighbour's<br>contribution</div>
+            <div class="op">→ add up →</div>
+            <div class="g"><div class="swatch" id="dOut"></div><span id="dOutTxt"></span></div>
+          </div>
+        </div>
+        <div class="imgbox"><div class="cap">Blurred (output, filling in)</div><canvas id="outCv" class="pix"></canvas></div>
+      </div>
+      <div class="progress"><div id="prog"></div></div>
+      <div class="narr" id="narr"></div>
+    </section>
+
+    <section class="card">
+      <h2>The kernel's shape</h2>
+      <div class="kgrid">
+        <div><canvas id="heat" class="heat"></canvas><p class="hint" style="text-align:center">Top view: brighter = bigger share</p></div>
+        <div>
+          <canvas id="prof" class="prof"></canvas>
+          <div class="legend"><span><i style="background:var(--mine)"></i>your p</span><span><i style="background:var(--gauss)"></i>Gaussian, p=2</span><span><i style="background:var(--disk)"></i>Disk, p=∞</span><span><i style="background:#c7cdd9"></i>kernel window edge ±(k−1)/2</span></div>
+          <div class="shape" id="shapeTxt"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Full-resolution comparison (same kernel size and radius)</h2>
+      <div class="compare">
+        <figure><canvas id="fOrig"></canvas><figcaption>Original</figcaption></figure>
+        <figure><canvas id="fGauss"></canvas><div class="busy">rendering…</div><figcaption style="color:var(--gauss)">Gaussian (p=2)</figcaption></figure>
+        <figure><canvas id="fMine"></canvas><div class="busy">rendering…</div><figcaption id="fMineCap">Your p</figcaption></figure>
+        <figure><canvas id="fDisk"></canvas><div class="busy">rendering…</div><figcaption style="color:var(--disk)">Disk (p=∞)</figcaption></figure>
+      </div>
+      <p class="hint">Tip: the <b>Night lights</b> and <b>Points of light</b> samples make the difference obvious: a blurred point of light takes on the exact shape of the kernel. That's why it's called a <i>point spread function</i>.</p>
+    </section>
+
+    <section class="card paper">
+      <h2>What the paper does</h2>
+      <p>FOSSA learns depth from <i>focus stacks</i>: photos of the same scene focused at different distances. There aren't many real focus stacks to train on, so the authors make synthetic ones by blurring regular photos, with stronger blur for objects farther from the focus plane (the blur radius <i>c</i> is the <i>circle of confusion</i>).</p>
+      <p>Earlier work blurred with a <span style="color:var(--gauss)">Gaussian</span> only. Real lenses behave differently: when blur is small, diffraction makes it look Gaussian, and when blur is large, geometric optics makes it look like a uniform <span style="color:var(--disk)">disk</span>. The paper combines both in one formula (Eq. 7):</p>
+      <div class="formula">F(u, v, p) = <sup>1</sup>&frasl;<sub>c²</sub> · exp( −2 · ( (u² + v²) / c² )<sup>p/2</sup> )</div>
+      <p>Here (u, v) is a neighbour's offset from the centre. With <b>p = 2</b> you get the Gaussian; as <b>p → ∞</b> the term is 0 inside the circle and huge outside, so you get the disk. During training, FOSSA draws <b>p ~ 2<sup>U(1,5)</sup></b> (between 2 and 32) so the model works on many different lenses. As in FOSSA's renderer, the shares are normalized to sum to 1, and near the image border, neighbours that fall outside the image are skipped and the rest are re-normalized.</p>
+      <p class="hint">Zuo*, Wen*, Subramanian*, Chen, Kayan, Bijelic, Heide, Deng. <a href="https://arxiv.org/abs/2603.26658" target="_blank" rel="noopener">arXiv:2603.26658</a> · <a href="https://github.com/princeton-vl/FOSSA" target="_blank" rel="noopener">code</a> · <a href="https://zedd.cs.princeton.edu/" target="_blank" rel="noopener">ZEDD benchmark</a></p>
+    </section>
+  </main>
+</div>
+
+<script>
+// ---------- convolution (shared with the Web Worker) ----------
+function convolveRGBA(src, w, h, ker, k) {
+  const m = (k - 1) >> 1, out = new Uint8ClampedArray(w * h * 4);
+  let wmax = 0; for (let i = 0; i < ker.length; i++) if (ker[i] > wmax) wmax = ker[i];
+  const du = [], dv = [], ww = [];
+  for (let j = 0; j < k; j++) for (let i = 0; i < k; i++) {
+    const v = ker[j * k + i];
+    if (v > wmax * 1e-6) { du.push(i - m); dv.push(j - m); ww.push(v); }
+  }
+  const n = ww.length, DU = Int32Array.from(du), DV = Int32Array.from(dv), WW = Float64Array.from(ww);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let r = 0, g = 0, b = 0, s = 0;
+    const inside = x >= m && x < w - m && y >= m && y < h - m;
+    for (let t = 0; t < n; t++) {
+      const xx = x + DU[t], yy = y + DV[t];
+      if (!inside && (xx < 0 || xx >= w || yy < 0 || yy >= h)) continue;
+      const o = (yy * w + xx) * 4, q = WW[t];
+      r += q * src[o]; g += q * src[o + 1]; b += q * src[o + 2]; s += q;
+    }
+    const o = (y * w + x) * 4;
+    out[o] = r / s; out[o + 1] = g / s; out[o + 2] = b / s; out[o + 3] = 255;
+  }
+  return out;
+}
+
+// ---------- generalized PSF (paper Eq. 7) ----------
+const P_INF = 121;
+const pFromSlider = v => (+v >= P_INF ? Infinity : Math.pow(2, v / 20));
+const fmtP = p => (p === Infinity ? '∞' : p < 10 ? p.toFixed(2) : p.toFixed(1));
+function psfValue(r2, c, p) {
+  if (p === Infinity) return r2 <= c * c ? 1 / (c * c) : 0;
+  return (1 / (c * c)) * Math.exp(-2 * Math.pow(r2 / (c * c), p / 2));
+}
+function buildKernel(k, c, p) {
+  const m = (k - 1) >> 1, ker = new Float64Array(k * k);
+  let s = 0;
+  for (let j = 0; j < k; j++) for (let i = 0; i < k; i++) {
+    const u = i - m, v = j - m, w = psfValue(u * u + v * v, c, p);
+    ker[j * k + i] = w; s += w;
+  }
+  for (let i = 0; i < ker.length; i++) ker[i] /= s;
+  return ker;
+}
+
+// ---------- state ----------
+const $ = id => document.getElementById(id);
+const S = {
+  k: 15, pSlider: 20, c: 7, cLinked: true, speed: 2, gran: 'pixel', ares: 72,
+  src: null, animW: 0, animH: 0, animIn: null, animOut: null, shown: null,
+  steps: 0, done: 0, cur: [0, 0], playing: false, kernel: null, lastTick: 0,
+};
+const SPEEDS = [
+  { ms: 1200, n: 1, label: 'Very slow' }, { ms: 500, n: 1, label: 'Slow' }, { ms: 150, n: 1, label: 'Medium' },
+  { ms: 40, n: 1, label: 'Brisk' }, { ms: 0, n: 1, label: 'Fast' }, { ms: 0, n: 4, label: 'Faster' },
+  { ms: 0, n: 16, label: 'Very fast' }, { ms: 0, n: 64, label: 'Turbo' }, { ms: 0, n: 400, label: 'Warp' },
+];
+const TILE = 8;
+const p = () => pFromSlider(S.pSlider);
+
+// ---------- colour map ----------
+const STOPS = [[0,0,4],[40,11,84],[101,21,110],[159,42,99],[212,72,66],[245,125,21],[250,193,39],[252,255,164]];
+function heatColor(t) {
+  t = Math.max(0, Math.min(1, t)) * (STOPS.length - 1);
+  const i = Math.min(STOPS.length - 2, Math.floor(t)), f = t - i, a = STOPS[i], b = STOPS[i + 1];
+  return `rgb(${a[0] + (b[0] - a[0]) * f | 0},${a[1] + (b[1] - a[1]) * f | 0},${a[2] + (b[2] - a[2]) * f | 0})`;
+}
+
+// ---------- sample images ----------
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function makeSample(kind) {
+  const cv = document.createElement('canvas'); cv.width = 480; cv.height = 360;
+  const g = cv.getContext('2d'), R = rng(7);
+  if (kind === 'lights') {
+    const gr = g.createLinearGradient(0, 0, 0, 360); gr.addColorStop(0, '#05070f'); gr.addColorStop(1, '#141a2e');
+    g.fillStyle = gr; g.fillRect(0, 0, 480, 360);
+    g.fillStyle = '#0b0e18'; for (let i = 0; i < 9; i++) { const w = 30 + R() * 40, h = 80 + R() * 140; g.fillRect(i * 55 - 10, 360 - h, w, h); }
+    const cols = ['#fff3c4', '#ffd27a', '#ff9f6b', '#9fd3ff', '#ffffff', '#ff6b8a', '#b6ff9f'];
+    for (let i = 0; i < 70; i++) { g.fillStyle = cols[i % cols.length]; g.beginPath(); g.arc(R() * 480, 40 + R() * 300, 3 + R() * 4, 0, 7); g.fill(); }
+  } else if (kind === 'points') {
+    g.fillStyle = '#000'; g.fillRect(0, 0, 480, 360);
+    const cols = ['#ffffff', '#ff5555', '#55ff77', '#5599ff', '#ffdd44', '#ff66ff'];
+    let n = 0; for (let y = 60; y < 360; y += 120) for (let x = 80; x < 480; x += 160) { g.fillStyle = cols[n++ % cols.length]; g.beginPath(); g.arc(x, y, 7, 0, 7); g.fill(); }
+  } else {
+    g.fillStyle = '#fff'; g.fillRect(0, 0, 480, 360);
+    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) if ((x + y) % 2) { g.fillStyle = '#222'; g.fillRect(20 + x * 22, 20 + y * 22, 22, 22); }
+    g.fillStyle = '#e63946'; g.beginPath(); g.arc(320, 90, 60, 0, 7); g.fill();
+    g.fillStyle = '#1d3557'; g.fillRect(250, 170, 200, 30);
+    g.fillStyle = '#2a9d8f'; g.beginPath(); g.moveTo(60, 340); g.lineTo(160, 220); g.lineTo(220, 340); g.fill();
+    g.strokeStyle = '#000'; g.lineWidth = 3; for (let i = 0; i < 6; i++) { g.beginPath(); g.moveTo(250 + i * 14, 220); g.lineTo(250 + i * 14, 340); g.stroke(); }
+    g.fillStyle = '#000'; g.font = 'bold 72px system-ui, sans-serif'; g.fillText('BLUR', 330, 330);
+  }
+  return cv;
+}
+const SAMPLES = [['lights', 'Night lights'], ['shapes', 'Shapes & text'], ['points', 'Points of light']];
+
+// ---------- loading ----------
+function setSource(canvas) { S.src = canvas; drawFull(); prepareAnim(); scheduleFull(); }
+function loadFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const url = URL.createObjectURL(file), img = new Image();
+  img.onload = () => {
+    const sc = Math.min(1, 1024 / Math.max(img.width, img.height));
+    const cv = document.createElement('canvas'); cv.width = Math.round(img.width * sc); cv.height = Math.round(img.height * sc);
+    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); URL.revokeObjectURL(url);
+    document.querySelectorAll('#samples button').forEach(b => b.classList.remove('on'));
+    setSource(cv);
+  };
+  img.src = url;
+}
+function resized(canvas, longEdge) {
+  const sc = longEdge / Math.max(canvas.width, canvas.height);
+  const w = Math.max(1, Math.round(canvas.width * sc)), h = Math.max(1, Math.round(canvas.height * sc));
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const g = cv.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(canvas, 0, 0, w, h);
+  return { w, h, data: g.getImageData(0, 0, w, h).data };
+}
+
+// ---------- animation ----------
+let animScale = 1;
+const tmp = document.createElement('canvas');
+function prepareAnim() {
+  if (!S.src) return;
+  S.kernel = buildKernel(S.k, S.c, p());
+  const r = resized(S.src, S.ares);
+  S.animW = r.w; S.animH = r.h; S.animIn = r.data;
+  S.animOut = convolveRGBA(S.animIn, r.w, r.h, S.kernel, S.k);
+  animScale = Math.max(2, Math.floor(480 / Math.max(r.w, r.h)));
+  for (const cv of [$('inCv'), $('outCv')]) { cv.width = r.w * animScale; cv.height = r.h * animScale; }
+  tmp.width = r.w; tmp.height = r.h;
+  resetAnim();
+  drawKernelViews();
+}
+function stepCount() {
+  const { animW: w, animH: h } = S;
+  if (S.gran === 'row') return h;
+  if (S.gran === 'tile') return Math.ceil(w / TILE) * Math.ceil(h / TILE);
+  return w * h;
+}
+function stepPixels(i) { // returns list of [x,y] for step i and the "focus" pixel
+  const { animW: w, animH: h } = S, px = [];
+  if (S.gran === 'row') { for (let x = 0; x < w; x++) px.push([x, i]); return { px, focus: [w >> 1, i] }; }
+  if (S.gran === 'tile') {
+    const tw = Math.ceil(w / TILE), tx = (i % tw) * TILE, ty = Math.floor(i / tw) * TILE;
+    for (let y = ty; y < Math.min(h, ty + TILE); y++) for (let x = tx; x < Math.min(w, tx + TILE); x++) px.push([x, y]);
+    return { px, focus: [Math.min(w - 1, tx + (TILE >> 1)), Math.min(h - 1, ty + (TILE >> 1))], tile: [tx, ty] };
+  }
+  const xy = [i % w, Math.floor(i / w)]; px.push(xy); return { px, focus: xy };
+}
+function resetAnim() {
+  S.shown = new Uint8ClampedArray(S.animW * S.animH * 4);
+  S.steps = stepCount(); S.done = 0; S.cur = [0, 0]; S.tile = null;
+  setPlaying(false); renderAnim();
+}
+function advance(n) {
+  for (let c = 0; c < n && S.done < S.steps; c++) {
+    const st = stepPixels(S.done++);
+    for (const [x, y] of st.px) { const o = (y * S.animW + x) * 4; for (let q = 0; q < 4; q++) S.shown[o + q] = S.animOut[o + q]; }
+    S.cur = st.focus; S.tile = st.tile || null;
+  }
+  if (S.done >= S.steps) setPlaying(false);
+  renderAnim();
+}
+function setPlaying(v) {
+  S.playing = v; $('play').textContent = v ? '❚❚ Pause' : (S.done >= S.steps && S.steps ? '▶ Replay' : '▶ Play');
+}
+function loop(t) {
+  if (S.playing) {
+    const sp = SPEEDS[S.speed];
+    if (t - S.lastTick >= sp.ms) { S.lastTick = t; advance(sp.n); }
+  }
+  requestAnimationFrame(loop);
+}
+
+function drawPixels(cv, data, w, h) {
+  const g = tmp.getContext('2d'); g.putImageData(new ImageData(new Uint8ClampedArray(data), w, h), 0, 0);
+  const c = cv.getContext('2d'); c.imageSmoothingEnabled = false; c.clearRect(0, 0, cv.width, cv.height); c.drawImage(tmp, 0, 0, cv.width, cv.height);
+  return c;
+}
+function renderAnim() {
+  if (!S.animIn) return;
+  const { animW: w, animH: h } = S, s = animScale, m = (S.k - 1) >> 1, [cx, cy] = S.cur;
+  const active = S.done > 0;
+  const gi = drawPixels($('inCv'), S.animIn, w, h);
+  if (active) {
+    // circle of radius c inside the window shows where weight lives
+    gi.save(); gi.fillStyle = 'rgba(255,255,255,0.18)'; gi.fillRect((cx - m) * s, (cy - m) * s, S.k * s, S.k * s);
+    gi.lineWidth = 2; gi.strokeStyle = '#ffd400'; gi.strokeRect((cx - m) * s, (cy - m) * s, S.k * s, S.k * s);
+    gi.setLineDash([5, 4]); gi.strokeStyle = '#fff'; gi.beginPath(); gi.arc((cx + .5) * s, (cy + .5) * s, S.c * s, 0, 7); gi.stroke(); gi.setLineDash([]);
+    gi.lineWidth = 2; gi.strokeStyle = '#ff2d55'; gi.strokeRect(cx * s, cy * s, s, s);
+    if (S.tile) { gi.strokeStyle = '#00e0ff'; gi.strokeRect(S.tile[0] * s, S.tile[1] * s, TILE * s, TILE * s); }
+    gi.restore();
+  }
+  const go = drawPixels($('outCv'), S.shown, w, h);
+  if (active && S.done < S.steps) {
+    go.lineWidth = 2; go.strokeStyle = '#ff2d55'; go.strokeRect(cx * s, cy * s, s, s);
+    if (S.tile) { go.strokeStyle = '#00e0ff'; go.strokeRect(S.tile[0] * s, S.tile[1] * s, TILE * s, TILE * s); }
+  }
+  $('prog').style.width = (S.steps ? 100 * S.done / S.steps : 0) + '%';
+  drawDetail(active);
+}
+
+function drawDetail(active) {
+  const k = S.k, m = (k - 1) >> 1, [cx, cy] = S.cur, ker = S.kernel, { animW: w, animH: h, animIn: src } = S;
+  const size = 300, cell = size / k;
+  let wmax = 0; for (const v of ker) wmax = Math.max(wmax, v);
+  const cvs = [$('dPatch'), $('dKer'), $('dProd')];
+  cvs.forEach(cv => { cv.width = size; cv.height = size; });
+  const [gp, gk, gq] = cvs.map(cv => cv.getContext('2d'));
+  let r = 0, gg = 0, b = 0, s = 0, outside = 0, used = 0;
+  for (let j = 0; j < k; j++) for (let i = 0; i < k; i++) {
+    const xx = cx + i - m, yy = cy + j - m, wv = ker[j * k + i], X = i * cell, Y = j * cell;
+    gk.fillStyle = heatColor(wv / wmax); gk.fillRect(X, Y, cell + .5, cell + .5);
+    const oob = xx < 0 || yy < 0 || xx >= w || yy >= h;
+    if (oob || !active) {
+      for (const g of [gp, gq]) { g.fillStyle = '#d9dde6'; g.fillRect(X, Y, cell + .5, cell + .5); if (oob) { g.strokeStyle = '#b8bfcc'; g.beginPath(); g.moveTo(X, Y + cell); g.lineTo(X + cell, Y); g.stroke(); } }
+      if (oob && wv > 0) outside++;
+      continue;
+    }
+    const o = (yy * w + xx) * 4, R = src[o], G = src[o + 1], B = src[o + 2], f = wv / wmax;
+    gp.fillStyle = `rgb(${R},${G},${B})`; gp.fillRect(X, Y, cell + .5, cell + .5);
+    gq.fillStyle = `rgb(${R * f | 0},${G * f | 0},${B * f | 0})`; gq.fillRect(X, Y, cell + .5, cell + .5);
+    r += wv * R; gg += wv * G; b += wv * B; s += wv; if (wv > wmax * 1e-6) used++;
+  }
+  if (cell >= 30) {
+    gk.font = `${Math.min(14, cell / 3.2)}px system-ui`; gk.textAlign = 'center'; gk.textBaseline = 'middle';
+    for (let j = 0; j < k; j++) for (let i = 0; i < k; i++) { const v = ker[j * k + i]; gk.fillStyle = v / wmax > .55 ? '#000' : '#fff'; gk.fillText((v * 100).toFixed(1) + '%', (i + .5) * cell, (j + .5) * cell); }
+  }
+  for (const g of [gp, gk, gq]) { g.strokeStyle = '#ff2d55'; g.lineWidth = 2; g.strokeRect(m * cell, m * cell, cell, cell); }
+  if (!active) { $('dOut').style.background = '#eee'; $('dOutTxt').textContent = ''; narrate(null); return; }
+  const R = Math.round(r / s), G = Math.round(gg / s), B = Math.round(b / s);
+  $('dOut').style.background = `rgb(${R},${G},${B})`;
+  $('dOutTxt').innerHTML = `new pixel<br>rgb(${R}, ${G}, ${B})`;
+  narrate({ cx, cy, used, outside, wmax, R, G, B });
+}
+
+function narrate(info) {
+  const el = $('narr'), pv = p();
+  if (!info) { el.innerHTML = 'Press <b>▶ Play</b>. A yellow window will slide over the original. At each stop, the pixels inside it are mixed using the kernel\'s shares, and the result becomes one pixel of the blurred image on the right.'; return; }
+  const ker = S.kernel, nz = Array.from(ker).filter(v => v > info.wmax * 1e-6);
+  const minw = Math.min(...nz), uniform = minw / info.wmax > 0.98, zeros = ker.length - nz.length;
+  let t = `<b>Pixel (${info.cx}, ${info.cy})</b>: mixing <b>${info.used}</b> neighbours. `;
+  if (uniform) t += `Every neighbour inside the circle gets the <b>same share (${(info.wmax * 100).toFixed(2)}%)</b>, so this is a <span style="color:var(--disk)">disk blur</span>. `;
+  else t += `The centre neighbour gets the biggest share (<b>${(info.wmax * 100).toFixed(2)}%</b>); shares shrink to ${(minw * 100).toFixed(3)}% farther out. `;
+  if (zeros) t += `${zeros} corner cells fall outside the circle and get 0%. `;
+  if (info.outside) t += `${info.outside} neighbours fall off the edge of the picture, so we skip them and re-share their votes among the rest. `;
+  t += `Weighted sum → <b>rgb(${info.R}, ${info.G}, ${info.B})</b>.`;
+  if (S.done >= S.steps) t += ' <b>Done!</b> Every pixel has been replaced by a blend of its neighbourhood.';
+  el.innerHTML = t;
+}
+
+// ---------- kernel views ----------
+function drawKernelViews() {
+  const k = S.k, m = (k - 1) >> 1, ker = S.kernel, pv = p();
+  let wmax = 0; for (const v of ker) wmax = Math.max(wmax, v);
+  const hc = $('heat'); hc.width = k; hc.height = k; const hg = hc.getContext('2d');
+  for (let j = 0; j < k; j++) for (let i = 0; i < k; i++) { hg.fillStyle = heatColor(ker[j * k + i] / wmax); hg.fillRect(i, j, 1, 1); }
+
+  const cv = $('prof'), dpr = window.devicePixelRatio || 1, W = cv.clientWidth || 600, H = cv.clientHeight || 240;
+  cv.width = W * dpr; cv.height = H * dpr; const g = cv.getContext('2d'); g.scale(dpr, dpr); g.clearRect(0, 0, W, H);
+  const span = Math.max(m, S.c) * 1.25 + 1, pad = 28;
+  const X = u => pad + (u + span) / (2 * span) * (W - 2 * pad), Y = v => H - pad - v * (H - 2 * pad);
+  g.strokeStyle = '#e3e6ee'; g.lineWidth = 1; g.beginPath(); g.moveTo(pad, Y(0)); g.lineTo(W - pad, Y(0)); g.moveTo(X(0), Y(0)); g.lineTo(X(0), Y(1.05)); g.stroke();
+  g.fillStyle = '#5d6678'; g.font = '11px system-ui'; g.textAlign = 'center';
+  for (let u = -Math.floor(span); u <= Math.floor(span); u += Math.max(1, Math.round(span / 6))) g.fillText(u, X(u), H - pad + 14);
+  g.fillText('distance from centre (pixels)', W / 2, H - 2); g.textAlign = 'left'; g.fillText('share (peak = 1)', pad + 2, 12);
+  g.setLineDash([4, 4]); g.strokeStyle = '#c7cdd9'; for (const u of [-m - .5, m + .5]) { g.beginPath(); g.moveTo(X(u), Y(0)); g.lineTo(X(u), Y(1.05)); g.stroke(); } g.setLineDash([]);
+  const curve = (pp, color, wd, dash) => {
+    g.strokeStyle = color; g.lineWidth = wd; g.setLineDash(dash || []); g.beginPath();
+    for (let i = 0; i <= 400; i++) { const u = -span + 2 * span * i / 400, v = psfValue(u * u, S.c, pp) * S.c * S.c; i ? g.lineTo(X(u), Y(v)) : g.moveTo(X(u), Y(v)); }
+    g.stroke(); g.setLineDash([]);
+  };
+  curve(2, getComputedStyle(document.body).getPropertyValue('--gauss'), 2, [6, 4]);
+  curve(Infinity, getComputedStyle(document.body).getPropertyValue('--disk'), 2, [6, 4]);
+  curve(pv, '#111', 3);
+  g.fillStyle = '#111'; for (let u = -m; u <= m; u++) { const v = psfValue(u * u, S.c, pv) * S.c * S.c; g.beginPath(); g.arc(X(u), Y(v), 2.5, 0, 7); g.fill(); }
+  $('shapeTxt').innerHTML = describe(pv);
+}
+function describe(pv) {
+  const trunc = S.c > (S.k - 1) / 2 + 0.01 ? ` Note: c is bigger than the window, so the kernel is cut off at the square's edges.` : '';
+  if (pv < 1.8) return `<b>p = ${fmtP(pv)}: sharper than Gaussian.</b> A spiky peak with long tails: most of the share sits right at the centre, with a faint haze around it. (Outside the paper's 2 to 32 range.)` + trunc;
+  if (pv < 2.3) return `<b>p ≈ 2: Gaussian blur.</b> A smooth bell-shaped hill. Nearby neighbours count a lot, distant ones fade away gradually. Looks like soft mist; models tiny, diffraction-dominated lens blur.` + trunc;
+  if (pv < 6) return `<b>p = ${fmtP(pv)}: in between.</b> The hill's top flattens and its sides get steeper. Neighbours count about the same until a fairly sudden drop-off.` + trunc;
+  if (pv < 33) return `<b>p = ${fmtP(pv)}: nearly a disk.</b> Almost flat inside the circle, with a sharp edge. Points of light turn into round "bokeh" discs, like a strongly out-of-focus camera lens.` + trunc;
+  return `<b>p = ${pv === Infinity ? '∞' : fmtP(pv)}: disk blur.</b> A flat cylinder: every neighbour inside the circle of radius c counts equally and everything outside counts zero. This is the geometric-optics model of defocus.` + trunc;
+}
+
+// ---------- full-resolution renders ----------
+let worker = null, jobId = 0, fullTimer = null;
+try {
+  const wsrc = convolveRGBA.toString() + '\nonmessage=e=>{const d=e.data;const outs=d.kernels.map(k=>convolveRGBA(d.src,d.w,d.h,k,d.k));postMessage({id:d.id,outs},outs.map(o=>o.buffer));};';
+  worker = new Worker(URL.createObjectURL(new Blob([wsrc], { type: 'text/javascript' })));
+  worker.onerror = () => { worker = null; renderFull(); };
+} catch (e) { worker = null; }
+let full = null;
+function drawFull() {
+  full = resized(S.src, 420);
+  for (const id of ['fOrig', 'fGauss', 'fMine', 'fDisk']) { $(id).width = full.w; $(id).height = full.h; }
+  $('fOrig').getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(full.data), full.w, full.h), 0, 0);
+}
+function scheduleFull() { clearTimeout(fullTimer); document.querySelectorAll('.busy').forEach(b => b.classList.add('show')); fullTimer = setTimeout(renderFull, 200); }
+function renderFull() {
+  if (!full) return;
+  const id = ++jobId, kernels = [buildKernel(S.k, S.c, 2), buildKernel(S.k, S.c, p()), buildKernel(S.k, S.c, Infinity)];
+  $('fMineCap').textContent = `Your p = ${fmtP(p())}`;
+  const show = outs => {
+    if (id !== jobId) return;
+    ['fGauss', 'fMine', 'fDisk'].forEach((cid, i) => $(cid).getContext('2d').putImageData(new ImageData(outs[i], full.w, full.h), 0, 0));
+    document.querySelectorAll('.busy').forEach(b => b.classList.remove('show'));
+  };
+  if (worker) {
+    worker.onmessage = e => show(e.data.outs);
+    worker.postMessage({ id, src: full.data, w: full.w, h: full.h, k: S.k, kernels });
+  } else setTimeout(() => show(kernels.map(kk => convolveRGBA(full.data, full.w, full.h, kk, S.k))), 0);
+}
+
+// ---------- UI wiring ----------
+function syncLabels() {
+  $('kVal').textContent = `${S.k} × ${S.k}`;
+  $('pVal').textContent = fmtP(p()) + (S.pSlider == 20 ? ' (Gaussian)' : S.pSlider >= P_INF ? ' (Disk)' : '');
+  $('cVal').textContent = S.c.toFixed(2) + ' px';
+  $('spVal').textContent = SPEEDS[S.speed].label;
+  $('arVal').textContent = `${S.ares} px wide`;
+  $('k').value = S.k; $('p').value = S.pSlider; $('c').value = S.c; $('c').disabled = S.cLinked;
+}
+function kernelChanged() { syncLabels(); const was = S.playing; prepareAnim(); scheduleFull(); if (was) setPlaying(true); }
+$('k').oninput = e => { S.k = +e.target.value; if (S.cLinked) S.c = (S.k - 1) / 2; kernelChanged(); };
+$('p').oninput = e => { S.pSlider = +e.target.value; kernelChanged(); };
+$('c').oninput = e => { S.c = +e.target.value; kernelChanged(); };
+$('cLink').onchange = e => { S.cLinked = e.target.checked; if (S.cLinked) S.c = (S.k - 1) / 2; kernelChanged(); };
+document.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { S.pSlider = +b.dataset.p; kernelChanged(); });
+$('pRand').onclick = () => { S.pSlider = Math.round(20 * (1 + 4 * Math.random())); kernelChanged(); };
+$('speed').oninput = e => { S.speed = +e.target.value; syncLabels(); };
+$('ares').oninput = e => { S.ares = +e.target.value; syncLabels(); prepareAnim(); };
+document.querySelectorAll('#gran button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#gran button').forEach(x => x.classList.toggle('on', x === b)); S.gran = b.dataset.g; resetAnim();
+});
+function togglePlay() { if (S.done >= S.steps) resetAnim(); setPlaying(!S.playing); S.lastTick = 0; }
+$('play').onclick = togglePlay;
+$('stepBtn').onclick = () => { setPlaying(false); if (S.done >= S.steps) resetAnim(); advance(1); };
+$('reset').onclick = resetAnim;
+$('finish').onclick = () => { setPlaying(false); advance(S.steps); };
+$('inCv').onclick = e => {
+  const r = e.target.getBoundingClientRect();
+  const x = Math.floor((e.clientX - r.left) / r.width * S.animW), y = Math.floor((e.clientY - r.top) / r.height * S.animH);
+  setPlaying(false); S.cur = [Math.max(0, Math.min(S.animW - 1, x)), Math.max(0, Math.min(S.animH - 1, y))]; S.tile = null;
+  if (!S.done) S.done = 0.0001; renderAnim();
+};
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
+  if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+  else if (e.code === 'ArrowRight' && e.target.type !== 'range') { setPlaying(false); advance(1); }
+  else if (e.key === 'r' || e.key === 'R') resetAnim();
+});
+const drop = $('drop'), file = $('file');
+drop.onclick = () => file.click();
+file.onchange = () => loadFile(file.files[0]);
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); loadFile(e.dataTransfer.files[0]); };
+document.addEventListener('paste', e => { const f = [...(e.clipboardData?.files || [])][0]; if (f) loadFile(f); });
+SAMPLES.forEach(([kind, name], i) => {
+  const cv = makeSample(kind), b = document.createElement('button');
+  const th = document.createElement('canvas'); th.width = 96; th.height = 72; th.getContext('2d').drawImage(cv, 0, 0, 96, 72);
+  b.append(th, name); b.onclick = () => { document.querySelectorAll('#samples button').forEach(x => x.classList.toggle('on', x === b)); setSource(cv); };
+  $('samples').append(b); if (kind === 'shapes') b.classList.add('on');
+});
+window.addEventListener('resize', () => S.kernel && drawKernelViews());
+
+syncLabels();
+setSource(makeSample('shapes'));
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
